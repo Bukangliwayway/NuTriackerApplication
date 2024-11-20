@@ -5,9 +5,6 @@ import com.example.NuTriacker.seeder.SeedPrototype;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalTime;
-
-
 @Component
 public class MealItemProcessor implements ItemProcessor<SeedPrototype, MealItem>{
     @Override
