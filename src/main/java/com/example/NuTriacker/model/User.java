@@ -33,4 +33,10 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DailyLog> dailyLogs;
+
+    public User(String password, String email) {
+    }
+
+    public User(String firstName, String lastName, String email, String password) {
+    }
 }

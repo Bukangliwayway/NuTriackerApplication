@@ -99,7 +99,7 @@ public class BatchUpload {
     @Bean
     public TaskExecutor asyncTaskExecutor() {
         SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor();
-        executor.setConcurrencyLimit(1);
+        executor.setConcurrencyLimit(2);
         return executor;
     }
 
