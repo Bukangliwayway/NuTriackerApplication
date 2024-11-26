@@ -39,4 +39,13 @@ public class DailyLog {
     @JoinColumn(name = "user_id")
     private User user;
 
+    public DailyLog(LocalDate date, User user) {
+        this.date = date;
+        this.totalDailyCalories = BigDecimal.valueOf(0);
+        this.totalDailyProteins = BigDecimal.valueOf(0);
+        this.totalDailyCarbs = BigDecimal.valueOf(0);
+        this.totalDailyFats = BigDecimal.valueOf(0);
+        this.user = user;
+    }
+
 }

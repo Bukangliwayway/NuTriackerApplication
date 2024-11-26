@@ -33,4 +33,7 @@ public class MealItem {
     @ManyToOne
     @JoinColumn(name = "meal_id")
     private Meal meal;
+
+    public MealItem(String foodName, BigDecimal weight, BigDecimal calories, BigDecimal proteins, BigDecimal carbs, BigDecimal fats, Meal meal) {
+    }
 }

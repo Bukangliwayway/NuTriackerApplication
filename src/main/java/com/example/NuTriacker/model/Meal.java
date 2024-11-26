@@ -38,4 +38,14 @@ public class Meal {
     @ManyToOne
     @JoinColumn(name = "daily_log_id")
     private DailyLog dailyLog;
+
+    public Meal(String mealName, LocalTime mealTime, DailyLog dailyLog) {
+        this.mealName = mealName;
+        this.mealTime = mealTime;
+        this.totalCalories = BigDecimal.valueOf(0);
+        this.totalProteins = BigDecimal.valueOf(0);
+        this.totalCarbs = BigDecimal.valueOf(0);
+        this.totalFats = BigDecimal.valueOf(0);
+        this.dailyLog = dailyLog;
+    }
 }
