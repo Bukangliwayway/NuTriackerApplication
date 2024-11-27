@@ -35,8 +35,11 @@ public class User {
     private List<DailyLog> dailyLogs;
 
     public User(String password, String email) {
+        this.password = password;
+        this.email = email;
     }
 
     public User(String firstName, String lastName, String email, String password) {
+
     }
 }

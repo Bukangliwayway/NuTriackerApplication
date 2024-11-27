@@ -11,6 +11,8 @@ import com.example.NuTriacker.repository.UserRepository;
 import com.example.NuTriacker.request.AddMealItemRequest;
 import com.example.NuTriacker.response.NutritionixAppResponse;
 import com.example.NuTriacker.service.Nutritionix.NutritionixService;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +24,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +38,10 @@ public class MealItemService implements  IMealItemService{
     @Autowired
     private NutritionixService nutritionixService;
 
+    @Autowired
+    private EntityManager entityManager;
+
+    @Transactional
     @Override
     public MealItem addMealItem(AddMealItemRequest request) {
         User user;
@@ -45,10 +50,9 @@ public class MealItemService implements  IMealItemService{
 
         //Create a random password for the user
         String randomPassword = UUID.randomUUID().toString();
-        String encodedPassword = passwordEncoder.encode(randomPassword);
 
         Optional<User> userExists = userRepo.findByEmail(request.getEmail());
-        user = userExists.orElseGet(() -> userRepo.save(new User(encodedPassword, request.getEmail())));
+        user = userExists.orElseGet(() -> userRepo.save(new User(randomPassword, request.getEmail())));
 
         Optional<DailyLog> dailyLogExists = dailyLogRepo.findByDateAndUser(request.getDate(), user);
         dailyLog = dailyLogExists.orElseGet(() -> dailyLogRepo.save(new DailyLog(request.getDate(), user)));
@@ -84,7 +88,141 @@ public class MealItemService implements  IMealItemService{
                 meal
         );
 
-        return null;
+        mealItemRepo.save(mealItem);
+
+        //Update the meal and daily log content
+        updateMealContent(meal);
+        updateDailyLogContent(dailyLog);
+
+        return mealItem;
+    }
+
+    @Transactional
+    public List<MealItem> addMealItems(List<AddMealItemRequest> requests) {
+
+        Map<String, User> userCache = new HashMap<>();
+        Map<LocalDate, Map<String, DailyLog>> dailyLogCache = new HashMap<>();
+        Map<String, Meal> mealCache = new HashMap<>();
+
+        List<MealItem> mealItems = new ArrayList<>();
+
+        Set<Meal> mealsToUpdate = new HashSet<>();
+        Set<DailyLog> logsToUpdate = new HashSet<>();
+
+        for (AddMealItemRequest request : requests) {
+            // Get or create user
+            User user = userCache.computeIfAbsent(request.getEmail(), email -> {
+                Optional<User> existing = userRepo.findByEmail(email);
+                return existing.orElseGet(() -> userRepo.save(new User(UUID.randomUUID().toString(), email)));
+            });
+
+            // Get or create daily log
+            DailyLog dailyLog = dailyLogCache
+                    .computeIfAbsent(request.getDate(), date -> new HashMap<>())
+                    .computeIfAbsent(user.getId().toString(), userId -> {
+                        Optional<DailyLog> existing = dailyLogRepo.findByDateAndUser(request.getDate(), user);
+                        return existing.orElseGet(() -> dailyLogRepo.save(new DailyLog(request.getDate(), user)));
+                    });
+
+            // Get or create meal
+            String mealKey = String.format("%s_%s_%s",
+                    dailyLog.getId(), request.getMealName(), request.getMealTime());
+            Meal meal = mealCache.computeIfAbsent(mealKey, k -> {
+                Optional<Meal> existing = mealRepo.findByMealNameAndMealTimeAndDailyLog(
+                        request.getMealName(), request.getMealTime(), dailyLog);
+                return existing.orElseGet(() -> mealRepo.save(new Meal(request.getMealName(), request.getMealTime(), dailyLog)));
+            });
+
+            // Get nutrition data and calculate
+            NutritionixAppResponse.FoodItem foodData = nutritionixService.getFoodData(request.getFoodName());
+
+            MealItem mealItem = getMealItem(request, foodData, meal);
+
+            mealItems.add(mealItem);
+            mealsToUpdate.add(meal);
+            logsToUpdate.add(dailyLog);
+        }
+
+        // Batch save meal items
+        List<MealItem> savedItems = mealItemRepo.saveAll(mealItems);
+        mealItemRepo.flush();
+
+        // Force refresh of meals before updating
+        for (Meal meal : mealsToUpdate) {
+            meal = mealRepo.findById(Math.toIntExact(meal.getId())).orElseThrow();
+            updateMealContent(meal);
+        }
+
+        // Force refresh of logs before updating
+        for (DailyLog log : logsToUpdate) {
+            log = dailyLogRepo.findById(Math.toIntExact(log.getId())).orElseThrow();
+            updateDailyLogContent(log);
+        }
+
+        return savedItems;
+    }
+
+    private MealItem getMealItem(AddMealItemRequest request, NutritionixAppResponse.FoodItem foodData, Meal meal) {
+        BigDecimal weight = request.getWeight();
+        BigDecimal servingWeight = foodData.getServing_weight_grams();
+
+        return new MealItem(
+                request.getFoodName(),
+                weight,
+                calculatePerGram(foodData.getNf_calories(), servingWeight).multiply(weight),
+                calculatePerGram(foodData.getNf_protein(), servingWeight).multiply(weight),
+                calculatePerGram(foodData.getNf_total_carbohydrate(), servingWeight).multiply(weight),
+                calculatePerGram(foodData.getNf_total_fat(), servingWeight).multiply(weight),
+                meal
+        );
+    }
+
+    private BigDecimal calculatePerGram(BigDecimal nutrient, BigDecimal servingWeight) {
+        return nutrient.divide(servingWeight, 6, RoundingMode.HALF_UP);
+    }
+
+    @Transactional
+    public void updateMealContent(Meal meal){
+        BigDecimal totalCalories = BigDecimal.valueOf(0);
+        BigDecimal totalProteins = BigDecimal.valueOf(0);
+        BigDecimal totalCarbs = BigDecimal.valueOf(0);
+        BigDecimal totalFats = BigDecimal.valueOf(0);
+        if (meal.getMealItems() != null) {
+            for (MealItem mealItem : meal.getMealItems()) {
+                totalCalories = totalCalories.add(mealItem.getCalories());
+                totalProteins = totalProteins.add(mealItem.getProteins());
+                totalCarbs = totalCarbs.add(mealItem.getCarbs());
+                totalFats = totalFats.add(mealItem.getFats());
+            }
+        }
+        meal.setTotalCalories(totalCalories);
+        meal.setTotalProteins(totalProteins);
+        meal.setTotalCarbs(totalCarbs);
+        meal.setTotalFats(totalFats);
+        mealRepo.saveAndFlush(meal);
+    }
+
+    @Transactional
+    public void updateDailyLogContent(DailyLog dailyLog){
+        BigDecimal totalCalories = BigDecimal.valueOf(0);
+        BigDecimal totalProteins = BigDecimal.valueOf(0);
+        BigDecimal totalCarbs = BigDecimal.valueOf(0);
+        BigDecimal totalFats = BigDecimal.valueOf(0);
+
+        if(dailyLog.getMeals() != null){
+            for(Meal meal : dailyLog.getMeals()){
+                totalCalories = totalCalories.add(meal.getTotalCalories());
+                totalProteins = totalProteins.add(meal.getTotalProteins());
+                totalCarbs = totalCarbs.add(meal.getTotalCarbs());
+                totalFats = totalFats.add(meal.getTotalFats());
+            }
+        }
+
+        dailyLog.setTotalDailyCalories(totalCalories);
+        dailyLog.setTotalDailyProteins(totalProteins);
+        dailyLog.setTotalDailyCarbs(totalCarbs);
+        dailyLog.setTotalDailyFats(totalFats);
+        dailyLogRepo.saveAndFlush(dailyLog);
     }
 
 }

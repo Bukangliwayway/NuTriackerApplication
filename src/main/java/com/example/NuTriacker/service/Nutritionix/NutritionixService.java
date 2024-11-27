@@ -2,8 +2,11 @@ package com.example.NuTriacker.service.Nutritionix;
 
 import com.example.NuTriacker.exception.FoodNotFoundException;
 import com.example.NuTriacker.response.NutritionixAppResponse;
+import com.example.NuTriacker.response.NutritionixErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpEntity;
@@ -41,19 +44,29 @@ public class NutritionixService {
 
         HttpEntity<Map<String, String>> request = new HttpEntity<>(body, headers);
 
-        NutritionixAppResponse response = restTemplate.postForObject(
-                apiUrl,
-                request,
-                NutritionixAppResponse.class
-        );
+        try {
+            NutritionixAppResponse response = restTemplate.postForObject(
+                    apiUrl,
+                    request,
+                    NutritionixAppResponse.class
+            );
 
-        Optional.ofNullable(response.getFoods())
-                .filter(list -> !list.isEmpty())
-                .orElseThrow(() -> new FoodNotFoundException("No food items found"));
+            return Optional.ofNullable(response.getFoods())
+                    .filter(list -> !list.isEmpty())
+                    .flatMap(list -> list.stream().findFirst())
+                    .orElseThrow(() -> new FoodNotFoundException("No "+ query + " found"));
 
-        return response.getFoods()
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new FoodNotFoundException("No food items found"));
+        } catch (HttpClientErrorException.NotFound e) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                NutritionixErrorResponse error = mapper.readValue(
+                        e.getResponseBodyAsString(),
+                        NutritionixErrorResponse.class
+                );
+                throw new FoodNotFoundException(error.getMessage());
+            } catch (Exception ex) {
+                throw new FoodNotFoundException(query + " not found");
+            }
+        }
     }
 }

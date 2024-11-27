@@ -35,5 +35,11 @@ public class MealItem {
     private Meal meal;
 
     public MealItem(String foodName, BigDecimal weight, BigDecimal calories, BigDecimal proteins, BigDecimal carbs, BigDecimal fats, Meal meal) {
+        this.foodName = foodName;
+        this.calories = calories;
+        this.proteins = proteins;
+        this.carbs = carbs;
+        this.fats = fats;
+        this.meal = meal;
     }
 }
