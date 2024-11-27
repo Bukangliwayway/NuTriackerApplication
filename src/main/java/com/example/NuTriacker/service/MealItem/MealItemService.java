@@ -116,7 +116,6 @@ public class MealItemService implements  IMealItemService{
                 return existing.orElseGet(() -> userRepo.save(new User(UUID.randomUUID().toString(), email)));
             });
 
-            // Get or create daily log
             DailyLog dailyLog = dailyLogCache
                     .computeIfAbsent(request.getDate(), date -> new HashMap<>())
                     .computeIfAbsent(user.getId().toString(), userId -> {
