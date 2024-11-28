@@ -10,6 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -32,7 +33,7 @@ public class Meal {
     @Column(updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Timestamp createdAt;
 
-    @OneToMany(mappedBy = "meal", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "meal", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<MealItem> mealItems;
 
     @ManyToOne
@@ -47,5 +48,11 @@ public class Meal {
         this.totalCarbs = BigDecimal.valueOf(0);
         this.totalFats = BigDecimal.valueOf(0);
         this.dailyLog = dailyLog;
+        this.mealItems = new ArrayList<>();
+
+        if (dailyLog.getMeals() == null) {
+            dailyLog.setMeals(new ArrayList<>());
+        }
+        dailyLog.getMeals().add(this);
     }
 }

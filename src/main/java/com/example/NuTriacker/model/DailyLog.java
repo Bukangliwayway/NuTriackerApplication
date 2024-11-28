@@ -10,6 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -32,7 +33,7 @@ public class DailyLog {
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
-    @OneToMany(mappedBy = "dailyLog", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "dailyLog", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<Meal> meals;
 
     @ManyToOne
@@ -46,6 +47,6 @@ public class DailyLog {
         this.totalDailyCarbs = BigDecimal.valueOf(0);
         this.totalDailyFats = BigDecimal.valueOf(0);
         this.user = user;
+        this.meals = new ArrayList<>();
     }
-
 }

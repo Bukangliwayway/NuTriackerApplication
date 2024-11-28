@@ -11,7 +11,6 @@ import com.example.NuTriacker.repository.UserRepository;
 import com.example.NuTriacker.request.AddMealItemRequest;
 import com.example.NuTriacker.response.NutritionixAppResponse;
 import com.example.NuTriacker.service.Nutritionix.NutritionixService;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -37,9 +36,6 @@ public class MealItemService implements  IMealItemService{
 
     @Autowired
     private NutritionixService nutritionixService;
-
-    @Autowired
-    private EntityManager entityManager;
 
     @Transactional
     @Override
@@ -92,20 +88,21 @@ public class MealItemService implements  IMealItemService{
 
         //Update the meal and daily log content
         updateMealContent(meal);
-        updateDailyLogContent(dailyLog);
-
+        try{
+            updateDailyLogContent(dailyLog);
+            System.out.println(dailyLog.getDate());
+        }catch (Exception e){
+            System.out.println(e);
+        }
         return mealItem;
     }
 
     @Transactional
     public List<MealItem> addMealItems(List<AddMealItemRequest> requests) {
-
         Map<String, User> userCache = new HashMap<>();
         Map<LocalDate, Map<String, DailyLog>> dailyLogCache = new HashMap<>();
         Map<String, Meal> mealCache = new HashMap<>();
-
         List<MealItem> mealItems = new ArrayList<>();
-
         Set<Meal> mealsToUpdate = new HashSet<>();
         Set<DailyLog> logsToUpdate = new HashSet<>();
 
@@ -116,6 +113,7 @@ public class MealItemService implements  IMealItemService{
                 return existing.orElseGet(() -> userRepo.save(new User(UUID.randomUUID().toString(), email)));
             });
 
+            // Get or create daily log
             DailyLog dailyLog = dailyLogCache
                     .computeIfAbsent(request.getDate(), date -> new HashMap<>())
                     .computeIfAbsent(user.getId().toString(), userId -> {
@@ -146,17 +144,16 @@ public class MealItemService implements  IMealItemService{
         List<MealItem> savedItems = mealItemRepo.saveAll(mealItems);
         mealItemRepo.flush();
 
-        // Force refresh of meals before updating
-        for (Meal meal : mealsToUpdate) {
-            meal = mealRepo.findById(Math.toIntExact(meal.getId())).orElseThrow();
+        // Batch update meals and daily logs
+        mealsToUpdate.forEach(meal -> {
             updateMealContent(meal);
-        }
+            mealRepo.flush();
+        });
 
-        // Force refresh of logs before updating
-        for (DailyLog log : logsToUpdate) {
-            log = dailyLogRepo.findById(Math.toIntExact(log.getId())).orElseThrow();
+        logsToUpdate.forEach(log -> {
             updateDailyLogContent(log);
-        }
+            dailyLogRepo.flush();
+        });
 
         return savedItems;
     }
@@ -165,7 +162,7 @@ public class MealItemService implements  IMealItemService{
         BigDecimal weight = request.getWeight();
         BigDecimal servingWeight = foodData.getServing_weight_grams();
 
-        return new MealItem(
+        MealItem mealItem = new MealItem(
                 request.getFoodName(),
                 weight,
                 calculatePerGram(foodData.getNf_calories(), servingWeight).multiply(weight),
@@ -174,6 +171,13 @@ public class MealItemService implements  IMealItemService{
                 calculatePerGram(foodData.getNf_total_fat(), servingWeight).multiply(weight),
                 meal
         );
+
+        // Add to meal's collection
+        if (meal.getMealItems() == null) {
+            meal.setMealItems(new ArrayList<>());
+        }
+        meal.getMealItems().add(mealItem);
+        return mealItem;
     }
 
     private BigDecimal calculatePerGram(BigDecimal nutrient, BigDecimal servingWeight) {
@@ -203,6 +207,7 @@ public class MealItemService implements  IMealItemService{
 
     @Transactional
     public void updateDailyLogContent(DailyLog dailyLog){
+
         BigDecimal totalCalories = BigDecimal.valueOf(0);
         BigDecimal totalProteins = BigDecimal.valueOf(0);
         BigDecimal totalCarbs = BigDecimal.valueOf(0);
