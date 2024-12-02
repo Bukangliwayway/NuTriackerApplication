@@ -86,14 +86,11 @@ public class MealItemService implements  IMealItemService{
 
         mealItemRepo.save(mealItem);
 
-        //Update the meal and daily log content
-        updateMealContent(meal);
-        try{
-            updateDailyLogContent(dailyLog);
-            System.out.println(dailyLog.getDate());
-        }catch (Exception e){
-            System.out.println(e);
-        }
+        meal.recomputeTotalNutrients();
+        mealRepo.save(meal);
+        dailyLog.recomputeTotalNutrients();
+        dailyLogRepo.save(dailyLog);
+
         return mealItem;
     }
 
@@ -146,14 +143,16 @@ public class MealItemService implements  IMealItemService{
 
         // Batch update meals and daily logs
         mealsToUpdate.forEach(meal -> {
-            updateMealContent(meal);
-            mealRepo.flush();
+            meal.recomputeTotalNutrients();
+            mealRepo.save(meal);
         });
 
         logsToUpdate.forEach(log -> {
-            updateDailyLogContent(log);
-            dailyLogRepo.flush();
+            log.recomputeTotalNutrients();
+            dailyLogRepo.save(log);
         });
+
+
 
         return savedItems;
     }
@@ -183,50 +182,4 @@ public class MealItemService implements  IMealItemService{
     private BigDecimal calculatePerGram(BigDecimal nutrient, BigDecimal servingWeight) {
         return nutrient.divide(servingWeight, 6, RoundingMode.HALF_UP);
     }
-
-    @Transactional
-    public void updateMealContent(Meal meal){
-        BigDecimal totalCalories = BigDecimal.valueOf(0);
-        BigDecimal totalProteins = BigDecimal.valueOf(0);
-        BigDecimal totalCarbs = BigDecimal.valueOf(0);
-        BigDecimal totalFats = BigDecimal.valueOf(0);
-        if (meal.getMealItems() != null) {
-            for (MealItem mealItem : meal.getMealItems()) {
-                totalCalories = totalCalories.add(mealItem.getCalories());
-                totalProteins = totalProteins.add(mealItem.getProteins());
-                totalCarbs = totalCarbs.add(mealItem.getCarbs());
-                totalFats = totalFats.add(mealItem.getFats());
-            }
-        }
-        meal.setTotalCalories(totalCalories);
-        meal.setTotalProteins(totalProteins);
-        meal.setTotalCarbs(totalCarbs);
-        meal.setTotalFats(totalFats);
-        mealRepo.saveAndFlush(meal);
-    }
-
-    @Transactional
-    public void updateDailyLogContent(DailyLog dailyLog){
-
-        BigDecimal totalCalories = BigDecimal.valueOf(0);
-        BigDecimal totalProteins = BigDecimal.valueOf(0);
-        BigDecimal totalCarbs = BigDecimal.valueOf(0);
-        BigDecimal totalFats = BigDecimal.valueOf(0);
-
-        if(dailyLog.getMeals() != null){
-            for(Meal meal : dailyLog.getMeals()){
-                totalCalories = totalCalories.add(meal.getTotalCalories());
-                totalProteins = totalProteins.add(meal.getTotalProteins());
-                totalCarbs = totalCarbs.add(meal.getTotalCarbs());
-                totalFats = totalFats.add(meal.getTotalFats());
-            }
-        }
-
-        dailyLog.setTotalDailyCalories(totalCalories);
-        dailyLog.setTotalDailyProteins(totalProteins);
-        dailyLog.setTotalDailyCarbs(totalCarbs);
-        dailyLog.setTotalDailyFats(totalFats);
-        dailyLogRepo.saveAndFlush(dailyLog);
-    }
-
 }

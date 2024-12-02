@@ -55,4 +55,19 @@ public class Meal {
         }
         dailyLog.getMeals().add(this);
     }
+
+    public void recomputeTotalNutrients() {
+        this.totalCalories = BigDecimal.valueOf(0);
+        this.totalProteins = BigDecimal.valueOf(0);
+        this.totalCarbs = BigDecimal.valueOf(0);
+        this.totalFats = BigDecimal.valueOf(0);
+
+        for (MealItem mealItem : mealItems) {
+            this.totalCalories = this.totalCalories.add(mealItem.getCalories());
+            this.totalProteins = this.totalProteins.add(mealItem.getProteins());
+            this.totalCarbs = this.totalCarbs.add(mealItem.getCarbs());
+            this.totalFats = this.totalFats.add(mealItem.getFats());
+        }
+
+    }
 }

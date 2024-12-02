@@ -4,7 +4,7 @@ import com.example.NuTriacker.exception.ResourceNotFoundException;
 import com.example.NuTriacker.model.MealItem;
 import com.example.NuTriacker.request.AddMealItemRequest;
 import com.example.NuTriacker.response.ApiResponse;
-import com.example.NuTriacker.service.MealItem.MealItemService;
+import com.example.NuTriacker.service.MealItem.IMealItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,25 +21,17 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RequiredArgsConstructor
 public class MealItemController {
 
-    private final MealItemService mealItemService;
+    private final IMealItemService mealItemService;
 
     @PostMapping
     public ResponseEntity<ApiResponse> addMenuItem(@RequestBody AddMealItemRequest request) {
-        try {
             MealItem mealItem = mealItemService.addMealItem(request);
             return ResponseEntity.ok(new ApiResponse("Meal Item Added Successfully!", mealItem));
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(NOT_FOUND).body(new ApiResponse(e.getMessage(), null));
-        }
     }
 
     @PostMapping("/batch")
     public ResponseEntity<ApiResponse> addMenuItems(@RequestBody List<AddMealItemRequest> requests) {
-        try {
             List<MealItem> savedItems = mealItemService.addMealItems(requests);
             return ResponseEntity.ok(new ApiResponse("Meal Items Added Successfully!", savedItems));
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(NOT_FOUND).body(new ApiResponse(e.getMessage(), null));
-        }
     }
 }

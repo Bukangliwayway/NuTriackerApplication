@@ -49,4 +49,17 @@ public class DailyLog {
         this.user = user;
         this.meals = new ArrayList<>();
     }
+
+    public void recomputeTotalNutrients() {
+        this.totalDailyCalories = BigDecimal.valueOf(0);
+        this.totalDailyProteins = BigDecimal.valueOf(0);
+        this.totalDailyCarbs = BigDecimal.valueOf(0);
+        this.totalDailyFats = BigDecimal.valueOf(0);
+        for (Meal meal : meals) {
+            this.totalDailyCalories = this.totalDailyCalories.add(meal.getTotalCalories());
+            this.totalDailyProteins = this.totalDailyProteins.add(meal.getTotalProteins());
+            this.totalDailyCarbs = this.totalDailyCarbs.add(meal.getTotalCarbs());
+            this.totalDailyFats = this.totalDailyFats.add(meal.getTotalFats());
+        }
+    }
 }
