@@ -3,7 +3,7 @@ package com.example.NuTriacker.request;
 import lombok.Data;
 
 @Data
-public class AddUserRequest {
+public class CreateUserRequest {
     private String firstName;
     private String lastName;
     private String email;

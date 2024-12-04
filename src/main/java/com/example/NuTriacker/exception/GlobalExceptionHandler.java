@@ -16,4 +16,11 @@ public class GlobalExceptionHandler {
                 .status(NOT_FOUND)
                 .body(new ApiResponse(ex.getMessage(), null));
     }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ApiResponse> handleUserNotFoundException(UserNotFoundException ex) {
+        return ResponseEntity
+                .status(NOT_FOUND)
+                .body(new ApiResponse(ex.getMessage(), null));
+    }
 }
